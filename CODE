@@ -1,0 +1,170 @@
+#define BLYNK_PRINT Serial
+#include <ESP8266WiFi.h>
+#include <BlynkSimpleEsp8266.h>
+#include <DHT.h>
+#include <Wire.h> 
+#include <LiquidCrystal_I2C.h>
+
+// Set the LCD address to 0x27 for a 16 chars and 2 line display
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+
+
+/************************* Pin Definition *********************************/
+
+//Relays for switching appliances
+#define Relay1            D0
+//#define Relay2            D2
+//#define Relay3            D1
+#define  trigPin          D5
+#define  echoPin          D6
+
+//DHT11 for reading temperature and humidity value
+#define DHTPIN            D7
+
+//Selection pins for multiplexer module to switch between different sensors and give data on a single analog pin.
+#define S0                D3
+#define S1                D4
+
+//Analog pin to read the incoming analog value from different sensors.
+#define analogpin         A0
+long duration;
+int distance;
+float distanceCm, distanceInch, distanceft ,Watercft ,Waterft, ECm,Eft,Wft;//fffddc
+ int wper,WCm ,Waterlitre; 
+float EC, PH;
+int ECC;
+int PHH;
+char auth[] = "nuZQRNuyhDc7Fhcwk2zzqSQGh05tt9QP";
+//float t;
+//float h;
+
+// Uncomment whatever type you're using!
+#define DHTTYPE DHT11     // DHT 11
+//#define DHTTYPE DHT22   // DHT 22, AM2302, AM2321
+//#define DHTTYPE DHT21   // DHT 21, AM2301
+
+
+
+DHT dht(DHTPIN, DHTTYPE);
+BlynkTimer timer;
+// Your WiFi credentials.
+// Set password to "" for open networks.
+char ssid[] = "Shad2863";
+char pass[] = "shad7423";
+
+// This function sends Arduino's up time every second to Virtual Pin (5).
+// In the app, Widget's reading frequency should be set to PUSH. This means
+// that you define how often to send data to Blynk App.
+void sendSensor()
+{
+  int h = dht.readHumidity();
+  int t = dht.readTemperature(); // or dht.readTemperature(true) for Fahrenheit
+
+  if (isnan(h) || isnan(t)) {
+    Serial.println("Failed to read from DHT sensor!");
+    return;
+  }
+  // You can send any value at any time.
+  // Please don't send more that 10 values per second.
+  Blynk.virtualWrite(V0, t);
+  Blynk.virtualWrite(V1, h);
+  Blynk.virtualWrite(V3, EC);
+  Blynk.virtualWrite(V4, PH);
+  //Blynk.virtualWrite(V4, motion);
+  //Blynk.virtualWrite(V5, light);
+  lcd.setCursor(0,0); 
+  lcd.print("Temp:"); 
+  lcd.print(t); 
+  lcd.print("C");
+  lcd.setCursor(9,0); 
+  lcd.print("HIM:"); 
+  lcd.print(h); 
+  lcd.print("%");
+}
+
+void setup()
+{
+  lcd.begin();
+  pinMode(trigPin, OUTPUT);  // Sets the trigPin as an Output
+  pinMode(echoPin, INPUT);   // Sets the echoPin as an Inpu
+  Serial.begin(9600);
+
+  Blynk.begin(auth, ssid, pass);
+
+  dht.begin();
+  pinMode(S0, OUTPUT);
+  pinMode(S1, OUTPUT);
+  pinMode(A0, INPUT);
+ // pinMode(buzzer, OUTPUT);
+
+  // Setup a function to be called every second
+  timer.setInterval(1000L, sendSensor);
+  timer.setInterval(1000L, sendSensor1);
+}
+
+void loop()
+{
+  // Now we can publish stuff!
+  // Address 01
+  digitalWrite(S0, LOW);
+  digitalWrite(S1, LOW);
+  ECC = analogRead(analogpin);
+//  Serial.print("Gas - "); Serial.println(gas);
+ EC = ECC*(0.9765625/50);
+// Address 10
+  digitalWrite(S0, HIGH);
+  digitalWrite(S1, LOW);
+  PHH = analogRead(analogpin);
+  PH = PHH*(0.9765625/50);
+ /* lcd.setCursor(0,0); 
+  lcd.print("Temp:"); 
+  lcd.print(t); 
+ // lcd.print("C");
+  lcd.setCursor(9,0); 
+  lcd.print("HIM:"); 
+  lcd.print(h); 
+  lcd.print("%");
+  lcd.setCursor(0,1);
+  lcd.print("Water:");
+  lcd.print(Waterlitre);
+  //lcd.setCursor(9,1);
+ // lcd.print("SMK:");
+  //lcd.print(smokeSensor);
+ 
+  delay(500);*/
+
+
+  Blynk.run();
+  timer.run();
+}
+
+void sendSensor1()
+{
+ digitalWrite(trigPin, LOW);
+delayMicroseconds(2);
+digitalWrite(trigPin, HIGH);
+delayMicroseconds(10);
+digitalWrite(trigPin, LOW);
+duration = pulseIn(echoPin, HIGH);
+distanceCm= duration*0.034/2;
+distanceInch = duration*0.0133/2;
+ distanceft = distanceInch/12;
+
+ECm = (distanceCm-12);
+WCm = (66-ECm);
+
+Eft = (distanceft-0.39);
+Wft = (2.14-Eft);
+
+Watercft = Wft *4.263; 
+Waterlitre = Watercft*28.32;
+wper=(WCm*1.52);
+lcd.setCursor(0,1);
+  lcd.print("Water:");
+  lcd.print(Waterlitre);
+  lcd.print(" Litre");
+
+  Blynk.virtualWrite(V5,Waterlitre);
+  delay(1000);                        //Pause for 3 seconds and start measuring distance again
+}
